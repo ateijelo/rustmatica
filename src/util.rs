@@ -1,4 +1,6 @@
-use serde::{ser::SerializeStruct, Deserialize, Serialize};
+use std::ops::{Add, Sub};
+
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct Vec3 {
@@ -19,40 +21,82 @@ impl Vec3 {
 
     pub fn abs(&self) -> UVec3 {
         UVec3 {
-            x: self.x.unsigned_abs() as usize,
-            y: self.y.unsigned_abs() as usize,
-            z: self.z.unsigned_abs() as usize,
+            x: self.x.unsigned_abs(),
+            y: self.y.unsigned_abs(),
+            z: self.z.unsigned_abs(),
+        }
+    }
+
+    pub fn signum(&self) -> Vec3 {
+        Vec3 {
+            x: self.x.signum(),
+            y: self.y.signum(),
+            z: self.z.signum(),
+        }
+    }
+
+    pub fn volume_to(&self, other: &Vec3) -> u32 {
+        self.size_to(other).volume()
+    }
+
+    pub fn size_to(&self, other: &Vec3) -> UVec3 {
+        UVec3 {
+            x: (self.x - other.x).unsigned_abs() + 1,
+            y: (self.y - other.y).unsigned_abs() + 1,
+            z: (self.z - other.z).unsigned_abs() + 1,
         }
     }
 }
 
-#[derive(Deserialize, Clone, Copy, PartialEq, Eq)]
+impl Add<Vec3> for Vec3 {
+    type Output = Self;
+
+    fn add(self, rhs: Vec3) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
+    }
+}
+
+impl Add<UVec3> for Vec3 {
+    type Output = Self;
+
+    fn add(self, rhs: UVec3) -> Self::Output {
+        Self {
+            x: self.x + rhs.x as i32,
+            y: self.y + rhs.y as i32,
+            z: self.z + rhs.z as i32,
+        }
+    }
+}
+
+impl Sub for Vec3 {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct UVec3 {
-    pub x: usize,
-    pub y: usize,
-    pub z: usize,
+    pub x: u32,
+    pub y: u32,
+    pub z: u32,
 }
 impl UVec3 {
-    pub fn new(x: usize, y: usize, z: usize) -> Self {
+    pub fn new(x: u32, y: u32, z: u32) -> Self {
         Self { x, y, z }
     }
 
-    pub fn volume(&self) -> usize {
+    pub fn volume(&self) -> u32 {
         self.x * self.y * self.z
-    }
-}
-
-// Manually implement Serialize for UVec3 so the values are saved as Int (u32) not Long (u64)
-impl Serialize for UVec3 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut ser = serializer.serialize_struct("UVec3", 3)?;
-        ser.serialize_field("x", &(self.x as u32))?;
-        ser.serialize_field("y", &(self.y as u32))?;
-        ser.serialize_field("z", &(self.z as u32))?;
-        ser.end()
     }
 }
 

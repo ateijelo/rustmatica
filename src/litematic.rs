@@ -7,7 +7,6 @@ use std::{
 
 #[cfg(feature = "chrono")]
 use chrono::{DateTime, TimeZone, Utc};
-use fastnbt::{from_bytes, to_bytes};
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 
 use crate::{
@@ -66,18 +65,20 @@ impl<'l> Litematic<'l> {
             minecraft_data_version: raw.minecraft_data_version,
 
             #[cfg(feature = "chrono")]
-            time_created: Utc.timestamp_millis(raw.metadata.time_created),
+            time_created: Utc.timestamp_millis_opt(raw.metadata.time_created).unwrap(),
             #[cfg(not(feature = "chrono"))]
             time_created: raw.metadata.time_created,
             #[cfg(feature = "chrono")]
-            time_modified: Utc.timestamp_millis(raw.metadata.time_modified),
+            time_modified: Utc
+                .timestamp_millis_opt(raw.metadata.time_modified)
+                .unwrap(),
             #[cfg(not(feature = "chrono"))]
             time_modified: raw.metadata.time_modified,
         };
     }
 
     pub fn to_raw(&self) -> schema::Litematic<'_> {
-        return schema::Litematic {
+        schema::Litematic {
             regions: {
                 let mut map = HashMap::new();
                 for region in self.regions.iter() {
@@ -105,15 +106,15 @@ impl<'l> Litematic<'l> {
                 #[cfg(not(feature = "chrono"))]
                 time_modified: current_time(),
             },
-        };
+        }
     }
 
     pub fn from_uncompressed_bytes(bytes: &[u8]) -> Result<Self> {
-        Ok(Self::from_raw(Cow::Owned(from_bytes(bytes)?)))
+        Ok(Self::from_raw(Cow::Owned(fastnbt::from_bytes(bytes)?)))
     }
 
     pub fn to_uncompressed_bytes(&self) -> Result<Vec<u8>> {
-        Ok(to_bytes(&self.to_raw())?)
+        Ok(fastnbt::to_bytes(&self.to_raw())?)
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
@@ -149,23 +150,23 @@ impl<'l> Litematic<'l> {
     }
 
     pub fn total_volume(&self) -> u32 {
-        self.regions.iter().map(|r| r.size.volume() as u32).sum()
+        self.regions.iter().map(|region| region.volume()).sum()
     }
 
     pub fn enclosing_size(&self) -> UVec3 {
         let mut bounds = [0; 6];
         for region in self.regions.iter() {
-            bounds[0] = bounds[0].min(region.min_global_x());
-            bounds[1] = bounds[1].max(region.max_global_x());
-            bounds[2] = bounds[2].min(region.min_global_y());
-            bounds[3] = bounds[3].max(region.max_global_y());
-            bounds[4] = bounds[4].min(region.min_global_z());
-            bounds[5] = bounds[5].max(region.max_global_z());
+            bounds[0] = bounds[0].min(region.min_x());
+            bounds[1] = bounds[1].max(region.max_x());
+            bounds[2] = bounds[2].min(region.min_y());
+            bounds[3] = bounds[3].max(region.max_y());
+            bounds[4] = bounds[4].min(region.min_z());
+            bounds[5] = bounds[5].max(region.max_z());
         }
         UVec3 {
-            x: bounds[1] - bounds[0] + 1,
-            y: bounds[3] - bounds[2] + 1,
-            z: bounds[5] - bounds[4] + 1,
+            x: (bounds[1] - bounds[0] + 1) as u32,
+            y: (bounds[3] - bounds[2] + 1) as u32,
+            z: (bounds[5] - bounds[4] + 1) as u32,
         }
     }
 }
